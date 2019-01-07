@@ -1,0 +1,127 @@
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: teamcity
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: teamcity
+  name: teamcity
+  namespace: teamcity
+spec:
+  clusterIP: 100.65.0.20
+  ports:
+  - port: 80
+    targetPort: 8111
+    protocol: TCP
+    name: http
+  selector:
+    app: teamcity-server
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: teamcity-server-workspace-claim
+  namespace: teamcity
+  labels:
+    app: teamcity-server
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: teamcity-server-log-claim
+  namespace: teamcity
+  labels:
+    app: teamcity-server
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: teamcity-server
+  name: teamcity-server
+  namespace: teamcity
+spec:
+  selector:
+    matchLabels:
+      app: teamcity-server
+  serviceName: teamcity
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: teamcity-server
+    spec:
+      containers:
+        - name: teamcity
+          image: jetbrains/teamcity-server:latest
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 8111
+            name: gui
+          volumeMounts:
+            - mountPath: /data/teamcity_server/datadir
+              name: teamcity-server-workspace
+            - mountPath: /opt/teamcity/logs
+              name: teamcity-server-log
+      volumes:
+        - name: teamcity-server-workspace
+          persistentVolumeClaim:
+            claimName: teamcity-server-workspace-claim
+        - name: teamcity-server-log
+          persistentVolumeClaim:
+            claimName: teamcity-server-log-claim
+
+---
+
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: teamcity-agent
+  namespace: teamcity
+  labels:
+    app: teamcity-agent
+spec:
+  selector:
+    matchLabels:
+      app: teamcity-agent
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: teamcity-agent
+    spec:
+      containers:
+        - name: teamcity-agent
+          image: jetbrains/teamcity-agent
+          imagePullPolicy: Always
+          resources:
+            requests:
+              ephemeral-storage: "2Gi"
+            limits:
+              ephemeral-storage: "4Gi"
+          env:
+          - name: SERVER_URL
+            value: teamcity.teamcity
+            
+        
