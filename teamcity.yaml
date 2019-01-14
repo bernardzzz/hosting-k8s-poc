@@ -14,7 +14,6 @@ metadata:
   name: teamcity
   namespace: teamcity
 spec:
-  clusterIP: 100.65.0.20
   ports:
   - port: 80
     targetPort: 8111
